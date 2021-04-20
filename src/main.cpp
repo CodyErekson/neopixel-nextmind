@@ -2,21 +2,12 @@
 #include <Adafruit_NeoPixel.h>
 #include <ArduinoJson.h>
 
-TaskHandle_t neopixelTask;
-//TaskHandle_t Task2;
-
 #define LED_PIN 15
-#define LED_COUNT 25
+#define LED_COUNT 24
 
 String identifier = "3dfa";
 String client_name = "codye_neonm_" + identifier;
 String color_topic = "neonm/" + identifier + "/color";
-
-int r = 0;
-int g = 255;
-int b = 0;
-
-int doOnce = 0;
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -38,19 +29,13 @@ EspMQTTClient client(
 // strip.Color(red, green, blue) as shown in the loop() function above),
 // and a delay time (in milliseconds) between pixels.
 void colorWipe(uint32_t color, int wait) {
+  Serial.print("Color:");
+  Serial.println(color);
   for(int i=0; i<=strip.numPixels(); i++) { // For each pixel in strip...
     strip.setPixelColor(i, color);         //  Set pixel's color (in RAM)
     strip.show();                          //  Update strip to match
     delay(wait);                           //  Pause for a moment
   }
-}
-
-void neopixel( void * pvParameters ){
-  Serial.print("Task1 running on core ");
-  Serial.println(xPortGetCoreID());
-
-  colorWipe(strip.Color(r,   g,   b), 50);
-  vTaskDelete( NULL );
 }
 
 // This function is called once everything is connected (Wifi and MQTT)
@@ -63,18 +48,16 @@ void onConnectionEstablished()
     DynamicJsonDocument doc(1024);
     deserializeJson(doc, payload);
     JsonObject obj = doc.as<JsonObject>();
-    r = obj["r"];
-    g = obj["g"];
-    b = obj["b"];
-      xTaskCreatePinnedToCore(
-                    neopixel,   /* Task function. */
-                    "neopixelTask",     /* name of task. */
-                    10000,       /* Stack size of task */
-                    NULL,        /* parameter of the task */
-                    1,           /* priority of the task */
-                    &neopixelTask,      /* Task handle to keep track of created task */
-                    0);          /* pin task to core 0 */
-    //vTaskSuspend( neopixelTask );
+    int r = obj["r"];
+    int g = obj["g"];
+    int b = obj["b"];
+    Serial.print("Red:");
+    Serial.println(r);
+    Serial.print("Green:");
+    Serial.println(g);
+    Serial.print("Blue:");
+    Serial.println(b);
+    colorWipe(strip.Color(r,g,b), 5);
   });
 
   // Publish a message to "mytopic/test"
@@ -90,22 +73,11 @@ void setup()
 {
   Serial.begin(115200);
   Serial.print(client_name);
-  Serial.print("Setup core:");
-  Serial.println(xPortGetCoreID());
 
   // Optionnal functionnalities of EspMQTTClient : 
   client.enableDebuggingMessages(); // Enable debugging messages sent to serial output
   //client.enableHTTPWebUpdater(); // Enable the web updater. User and password default to values of MQTTUsername and MQTTPassword. These can be overrited with enableHTTPWebUpdater("user", "password").
   //client.enableLastWillMessage("TestClient/lastwill", "I am going offline");  // You can activate the retain flag by setting the third parameter to true
-
-  // xTaskCreatePinnedToCore(
-  //                   neopixel,   /* Task function. */
-  //                   "neopixelTask",     /* name of task. */
-  //                   10000,       /* Stack size of task */
-  //                   NULL,        /* parameter of the task */
-  //                   1,           /* priority of the task */
-  //                   &neopixelTask,      /* Task handle to keep track of created task */
-  //                   0);          /* pin task to core 0 */ 
 
   strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
   strip.show();            // Turn OFF all pixels ASAP
@@ -114,10 +86,5 @@ void setup()
 
 void loop()
 {
-  if ( doOnce == 0 ) {
-    Serial.print("Loop core:");
-    Serial.println(xPortGetCoreID());
-    doOnce = 1;
-  }
   client.loop();
 }
